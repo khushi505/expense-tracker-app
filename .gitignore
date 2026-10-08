@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# native builds
+android/
+ios/
+*.apk
+*.aab
+
+# signing keys and secrets (never commit these)
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.env
+.env*.local
+
+# local / OS files
+.DS_Store
+*.log
+npm-debug.*

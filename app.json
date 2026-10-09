@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Tracker",
-    "slug": "expense-tracker",
+    "slug": "expense-tracker-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -11,7 +11,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon-mono.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "plugins": [
       "expo-local-authentication",
@@ -33,7 +39,15 @@
       "policy": "appVersion"
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
-    }
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/37d0a61f-9dcc-4f4b-bcf8-0f94f2b9d2b2"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "37d0a61f-9dcc-4f4b-bcf8-0f94f2b9d2b2"
+      }
+    },
+    "owner": "khushi505s-team",
+    "ios": {}
   }
 }

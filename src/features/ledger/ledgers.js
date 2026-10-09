@@ -16,7 +16,7 @@ export const LEDGERS = {
     filePrefix: 'expense-report',
     categories: CATEGORIES,
     names: CATEGORY_NAMES,
-    keys: { expenses: KEYS.expenses, budget: KEYS.budget, icons: KEYS.icons },
+    keys: { expenses: KEYS.expenses, icons: KEYS.icons },
   },
   house: {
     id: 'house',
@@ -31,7 +31,7 @@ export const LEDGERS = {
     filePrefix: 'house-report',
     categories: HOUSE_CATEGORIES,
     names: HOUSE_CATEGORY_NAMES,
-    keys: { expenses: KEYS.houseExpenses, budget: KEYS.houseBudget, icons: KEYS.houseIcons },
+    keys: { expenses: KEYS.houseExpenses, icons: KEYS.houseIcons },
   },
   invest: {
     id: 'invest',
@@ -46,7 +46,7 @@ export const LEDGERS = {
     filePrefix: 'investment-report',
     categories: INVEST_CATEGORIES,
     names: INVEST_CATEGORY_NAMES,
-    keys: { expenses: KEYS.investExpenses, budget: KEYS.investBudget, icons: KEYS.investIcons },
+    keys: { expenses: KEYS.investExpenses, icons: KEYS.investIcons },
   },
 };
 

@@ -1,18 +1,20 @@
 import { CATEGORIES, HOUSE_CATEGORIES, INVEST_CATEGORIES } from '../../constants/categories';
 import { ACCENTS } from '../../theme/palettes';
+import { monthKey } from '../../utils/dates';
 import { lastEmoji } from '../../utils/emoji';
 
 export const BACKUP_VERSION = 1;
 const APP_ID = 'expense-tracker';
 
 // What goes into the backup file. The PIN and app-lock settings are left out on purpose.
-// `house`, `invest` and `salary` are optional extras: older backups don't have them.
-export function buildBackup({ expenses, name, budget, icons, theme, house, invest, salary }) {
+// `house`, `invest`, `salary`, `budgets` and `savingsTargets` are optional extras: older backups don't have them.
+// salary / budgets / savingsTargets are { 'YYYY-MM': amount }, one amount per month.
+export function buildBackup({ expenses, name, icons, theme, house, invest, salary, budgets, savingsTargets }) {
   return {
     app: APP_ID,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { expenses, name, budget, icons, theme, house, invest, salary },
+    data: { expenses, name, icons, theme, house, invest, salary, budgets, savingsTargets },
   };
 }
 
@@ -45,12 +47,26 @@ function cleanTheme(t) {
   return accent ? { mode, accent } : undefined;
 }
 
-// { '2026-10': 80000 } -> keeps only valid months with sensible amounts.
-function cleanSalary(s) {
-  if (!s || typeof s !== 'object' || Array.isArray(s)) return undefined;
+// An amount typed in Profile: a number or numeric text, never negative.
+function cleanAmount(x) {
+  const n = typeof x === 'number' ? x : typeof x === 'string' ? parseFloat(x) : NaN;
+  return isFinite(n) && n >= 0 ? n : undefined;
+}
+
+// { '2026-10': 80000 } -> keeps only valid months with sensible amounts. Returns undefined if there are none.
+function cleanMonthMap(m) {
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return undefined;
   const out = {};
-  for (const [k, v] of Object.entries(s)) if (/^\d{4}-(0[1-9]|1[0-2])$/.test(k) && typeof v === 'number' && isFinite(v) && v >= 0) out[k] = v;
-  return out;
+  for (const [k, v] of Object.entries(m)) if (/^\d{4}-(0[1-9]|1[0-2])$/.test(k) && cleanAmount(v) !== undefined) out[k] = cleanAmount(v);
+  return Object.keys(out).length ? out : undefined;
+}
+
+// A per-month amount. Older backups stored a single amount for everything: that goes to the month the backup was made.
+function monthlyAmount(value, legacySingle, exportedMonth) {
+  const map = cleanMonthMap(value);
+  if (map) return map;
+  const single = cleanAmount(legacySingle !== undefined ? legacySingle : value);
+  return single !== undefined ? { [exportedMonth]: single } : undefined;
 }
 
 // Cleans a list of expenses: drops broken entries and repeated ids, and counts what it dropped.
@@ -73,7 +89,7 @@ function cleanList(list, categories) {
 function readSection(raw, categories) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.expenses)) return null;
   const { expenses, skipped } = cleanList(raw.expenses, categories);
-  return { expenses, skipped, budget: typeof raw.budget === 'string' ? raw.budget : undefined, icons: cleanIcons(raw.icons, categories) };
+  return { expenses, skipped, icons: cleanIcons(raw.icons, categories) };
 }
 
 // Reads the text of a backup file. Returns { error } or { backup, skipped }.
@@ -95,17 +111,21 @@ export function parseBackup(text) {
   const house = readSection(d.house, HOUSE_CATEGORIES);
   const invest = readSection(d.invest, INVEST_CATEGORIES);
 
+  // Backups made before amounts were per month had one salary / budget / target for all months.
+  const exportedMonth = typeof file.exportedAt === 'string' && /^\d{4}-\d{2}/.test(file.exportedAt) ? file.exportedAt.slice(0, 7) : monthKey(new Date());
+
   return {
     skipped: daily.skipped + (house ? house.skipped : 0) + (invest ? invest.skipped : 0),
     backup: {
       expenses: daily.expenses,
       name: typeof d.name === 'string' ? d.name.slice(0, 60) : undefined,
-      budget: typeof d.budget === 'string' ? d.budget : undefined,
       icons: cleanIcons(d.icons, CATEGORIES),
       theme: cleanTheme(d.theme),
-      house: house && { expenses: house.expenses, budget: house.budget, icons: house.icons },
-      invest: invest && { expenses: invest.expenses, budget: invest.budget, icons: invest.icons },
-      salary: cleanSalary(d.salary),
+      house: house && { expenses: house.expenses, icons: house.icons },
+      invest: invest && { expenses: invest.expenses, icons: invest.icons },
+      salary: monthlyAmount(d.salary, undefined, exportedMonth),
+      budgets: monthlyAmount(d.budgets, d.budget, exportedMonth),
+      savingsTargets: monthlyAmount(d.savingsTargets, d.savingsTarget, exportedMonth),
     },
   };
 }

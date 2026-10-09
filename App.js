@@ -4,9 +4,11 @@ import Fab from './src/components/Fab';
 import Header from './src/components/Header';
 import MenuDrawer from './src/components/MenuDrawer';
 import UndoSnackbar from './src/components/UndoSnackbar';
+import { KEYS } from './src/constants/storageKeys';
 import { ThemeProvider, useTheme, useThemedStyles } from './src/theme/ThemeContext';
 import { dateOf, defaultDate } from './src/utils/dates';
 import { useBackup } from './src/features/backup/useBackup';
+import { budgetStatus } from './src/features/budget/budgetStatus';
 import AddExpenseScreen from './src/features/expenses/AddExpenseScreen';
 import ExpenseListScreen from './src/features/expenses/ExpenseListScreen';
 import { summarize } from './src/features/expenses/expenseStats';
@@ -15,13 +17,13 @@ import { useMonth } from './src/features/expenses/useMonth';
 import HomeScreen from './src/features/home/HomeScreen';
 import { useLedger } from './src/features/ledger/useLedger';
 import OverviewScreen from './src/features/overview/OverviewScreen';
-import { useSalary } from './src/features/overview/useSalary';
 import LockScreen from './src/features/lock/LockScreen';
 import { useAppLock } from './src/features/lock/useAppLock';
 import { useHiddenTotal } from './src/features/privacy/useHiddenTotal';
 import AppearanceScreen from './src/features/settings/AppearanceScreen';
 import SecurityBackupScreen from './src/features/settings/SecurityBackupScreen';
 import ProfileScreen from './src/features/settings/ProfileScreen';
+import { useMonthlyAmount } from './src/features/settings/useMonthlyAmount';
 import { useProfile } from './src/features/settings/useProfile';
 
 export default function App() {
@@ -42,25 +44,29 @@ function Root() {
   const [listFrom, setListFrom] = useState('home'); // where the list was opened from (home or the month overview)
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Separate sets of entries (daily, house, investments), each with its own icons (and budget). One is shown at a time.
+  // Separate sets of entries (daily, house, investments), each with its own icons. One is shown at a time.
   const daily = useLedger('daily');
   const house = useLedger('house');
   const invest = useLedger('invest');
   const [ledgerId, setLedgerId] = useState('daily');
-  const { def: ledger, store, budget, icons } = { daily, house, invest }[ledgerId];
-  const salary = useSalary();
+  const { def: ledger, store, icons } = { daily, house, invest }[ledgerId];
+  // Entered in Profile, separately for each month. Only the daily section has a budget.
+  const salary = useMonthlyAmount(KEYS.salary, KEYS.salaryAmount);
+  const budgets = useMonthlyAmount(KEYS.budgetByMonth, KEYS.budget);
+  const savings = useMonthlyAmount(KEYS.savingsByMonth, KEYS.savingsTarget);
 
   const { month, setMonth, date, setDate, changeMonth } = useMonth();
   const form = useExpenseForm();
   const profile = useProfile();
   const hide = useHiddenTotal();
   const appLock = useAppLock();
-  const backup = useBackup({ daily, house, invest, salary, profile });
+  const backup = useBackup({ daily, house, invest, salary, budgets, savings, profile });
 
   const { visible, total, byDate, sections } = summarize(store.expenses, month);
   const dailyMonth = summarize(daily.store.expenses, month);
   const houseMonth = summarize(house.store.expenses, month);
   const investMonth = summarize(invest.store.expenses, month);
+  const status = budgetStatus(ledgerId === 'daily' ? budgets.valueFor(month) : null, total);
   const loggedThisMonth = dailyMonth.visible.length + houseMonth.visible.length + investMonth.visible.length;
 
   const go = sc => {
@@ -128,7 +134,7 @@ function Root() {
           onMonthChange={changeMonth}
           total={total}
           count={visible.length}
-          budgetStatus={budget.statusFor(total)}
+          budgetStatus={status}
           hide={hide}
           onViewExpenses={() => openList(null, 'home')}
         />
@@ -138,7 +144,8 @@ function Root() {
         <OverviewScreen
           month={month}
           onMonthChange={changeMonth}
-          salary={salary}
+          salary={salary.valueFor(month)}
+          savingsTarget={savings.valueFor(month)}
           daily={dailyMonth.total}
           house={houseMonth.total}
           invest={investMonth.total}
@@ -155,7 +162,7 @@ function Root() {
           total={total}
           count={visible.length}
           sections={sections}
-          budgetStatus={budget.statusFor(total)}
+          budgetStatus={status}
           cats={icons.cats}
           onEdit={startEdit}
         />
@@ -181,8 +188,11 @@ function Root() {
         <ProfileScreen
           name={profile.name}
           saveName={profile.saveName}
-          dailyBudget={daily.budget.budget}
-          saveDailyBudget={daily.budget.saveBudget}
+          month={month}
+          onMonthChange={changeMonth}
+          salary={salary}
+          dailyBudget={budgets}
+          savingsTarget={savings}
           count={loggedThisMonth}
         />
       )}

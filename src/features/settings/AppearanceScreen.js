@@ -5,8 +5,8 @@ import { ACCENTS } from '../../theme/palettes';
 import { makeSharedStyles } from '../../theme/sharedStyles';
 import CategoryIconsSection from './CategoryIconsSection';
 
-// Light / dark mode, accent colour, and the emoji for each category.
-export default function AppearanceScreen({ cats, setIcon, resetIcons }) {
+// Light / dark mode, accent colour, and the emoji for each category (daily and house).
+export default function AppearanceScreen({ ledgers }) {
   const { mode, accent, saveTheme } = useTheme();
   const shared = useThemedStyles(makeSharedStyles);
   const styles = useThemedStyles(makeStyles);
@@ -22,8 +22,12 @@ export default function AppearanceScreen({ cats, setIcon, resetIcons }) {
           </Pressable>
         ))}
       </View>
-      <Text style={shared.section}>Category icons</Text>
-      <CategoryIconsSection cats={cats} setIcon={setIcon} resetIcons={resetIcons} />
+      {ledgers.map(l => (
+        <View key={l.def.id}>
+          <Text style={shared.section}>{l.def.id === 'daily' ? 'Category icons' : 'House icons'}</Text>
+          <CategoryIconsSection names={l.def.names} cats={l.icons.cats} setIcon={l.icons.setIcon} resetIcons={l.icons.resetIcons} />
+        </View>
+      ))}
     </ScrollView>
   );
 }

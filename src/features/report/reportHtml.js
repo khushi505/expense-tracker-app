@@ -3,7 +3,7 @@ import { dateKey, dateLabel, monthLabel } from '../../utils/dates';
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // The page that becomes the PDF: month total, budget, and every expense grouped by date.
-export function buildReportHtml({ month, name, total, count, sections, budgetStatus, cats, accent }) {
+export function buildReportHtml({ month, name, reportName = 'Expense report', total, count, sections, budgetStatus, cats, accent }) {
   const { hasBudget, budgetNum, left, over } = budgetStatus;
   const budgetLine = hasBudget
     ? over
@@ -45,7 +45,7 @@ export function buildReportHtml({ month, name, total, count, sections, budgetSta
 </style></head>
 <body>
   <h1>${esc(monthLabel(month))}</h1>
-  <div class="sub">${name ? `${esc(name)} &middot; ` : ''}Expense report</div>
+  <div class="sub">${name ? `${esc(name)} &middot; ` : ''}${esc(reportName)}</div>
   <div class="summary">
     <div class="meta">Total spent</div>
     <div class="total">${total} Rs</div>

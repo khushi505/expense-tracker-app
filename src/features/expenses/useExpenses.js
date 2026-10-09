@@ -2,22 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import { KEYS } from '../../constants/storageKeys';
 import { load, save } from '../../utils/storage';
 
-// All expenses, saved on the phone, plus "undo" for the last deleted one.
-export function useExpenses() {
+// A list of expenses, saved on the phone under `storageKey`, plus "undo" for the last deleted one.
+export function useExpenses(storageKey = KEYS.expenses) {
   const [expenses, setExpenses] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [undo, setUndo] = useState(null); // { item, index } of the last deleted expense
   const undoTimer = useRef(null);
 
   useEffect(() => {
-    load(KEYS.expenses).then(v => {
+    load(storageKey).then(v => {
       if (v) setExpenses(v);
       setLoaded(true);
     });
   }, []);
 
   useEffect(() => {
-    if (loaded) save(KEYS.expenses, expenses);
+    if (loaded) save(storageKey, expenses);
   }, [expenses, loaded]);
 
   useEffect(() => () => clearTimeout(undoTimer.current), []);

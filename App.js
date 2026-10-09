@@ -7,22 +7,20 @@ import UndoSnackbar from './src/components/UndoSnackbar';
 import { ThemeProvider, useTheme, useThemedStyles } from './src/theme/ThemeContext';
 import { dateOf, defaultDate } from './src/utils/dates';
 import { useBackup } from './src/features/backup/useBackup';
-import { useBudget } from './src/features/budget/useBudget';
 import AddExpenseScreen from './src/features/expenses/AddExpenseScreen';
 import ExpenseListScreen from './src/features/expenses/ExpenseListScreen';
 import { summarize, sumAll } from './src/features/expenses/expenseStats';
 import { useExpenseForm } from './src/features/expenses/useExpenseForm';
-import { useExpenses } from './src/features/expenses/useExpenses';
 import { useMonth } from './src/features/expenses/useMonth';
-import ReportScreen from './src/features/report/ReportScreen';
 import HomeScreen from './src/features/home/HomeScreen';
+import { useLedger } from './src/features/ledger/useLedger';
+import ReportScreen from './src/features/report/ReportScreen';
 import LockScreen from './src/features/lock/LockScreen';
 import { useAppLock } from './src/features/lock/useAppLock';
 import { useHiddenTotal } from './src/features/privacy/useHiddenTotal';
 import AppearanceScreen from './src/features/settings/AppearanceScreen';
 import SecurityBackupScreen from './src/features/settings/SecurityBackupScreen';
 import ProfileScreen from './src/features/settings/ProfileScreen';
-import { useCategoryIcons } from './src/features/settings/useCategoryIcons';
 import { useProfile } from './src/features/settings/useProfile';
 
 export default function App() {
@@ -42,17 +40,22 @@ function Root() {
   const [from, setFrom] = useState('home'); // screen to return to after the add/edit screen
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const store = useExpenses();
+  // Two separate sets of expenses (daily and house), each with its own budget and icons. One is shown at a time.
+  const daily = useLedger('daily');
+  const house = useLedger('house');
+  const [ledgerId, setLedgerId] = useState('daily');
+  const { def: ledger, store, budget, icons } = ledgerId === 'house' ? house : daily;
+
   const { month, setMonth, date, setDate, changeMonth } = useMonth();
   const form = useExpenseForm();
   const profile = useProfile();
-  const budget = useBudget();
-  const icons = useCategoryIcons();
   const hide = useHiddenTotal();
   const appLock = useAppLock();
-  const backup = useBackup({ store, profile, budget, icons });
+  const backup = useBackup({ daily, house, profile });
 
   const { visible, total, byDate, sections } = summarize(store.expenses, month);
+  const dailyMonthTotal = summarize(daily.store.expenses, month).total;
+  const houseMonthTotal = summarize(house.store.expenses, month).total;
 
   const go = sc => {
     form.reset();
@@ -93,8 +96,8 @@ function Root() {
 
   const titles = {
     home: 'Expense Tracker',
-    list: 'Expenses',
-    add: form.editingId ? 'Edit expense' : 'Add expense',
+    list: ledger.listTitle,
+    add: form.editingId ? ledger.editTitle : ledger.addTitle,
     profile: 'Profile',
     report: 'Monthly report',
     appearance: 'Appearance',
@@ -108,6 +111,8 @@ function Root() {
 
       {screen === 'home' && (
         <HomeScreen
+          ledger={ledger}
+          onLedgerChange={setLedgerId}
           month={month}
           onMonthChange={changeMonth}
           total={total}
@@ -148,27 +153,32 @@ function Root() {
         <ProfileScreen
           name={profile.name}
           saveName={profile.saveName}
-          budget={budget.budget}
-          saveBudget={budget.saveBudget}
-          monthTotal={total}
-          allTotal={sumAll(store.expenses)}
-          count={store.expenses.length}
+          dailyBudget={daily.budget.budget}
+          saveDailyBudget={daily.budget.saveBudget}
+          houseBudget={house.budget.budget}
+          saveHouseBudget={house.budget.saveBudget}
+          dailyMonthTotal={dailyMonthTotal}
+          houseMonthTotal={houseMonthTotal}
+          allTotal={sumAll(daily.store.expenses) + sumAll(house.store.expenses)}
+          count={daily.store.expenses.length + house.store.expenses.length}
         />
       )}
 
-      {screen === 'appearance' && <AppearanceScreen cats={icons.cats} setIcon={icons.setIcon} resetIcons={icons.resetIcons} />}
+      {screen === 'appearance' && <AppearanceScreen ledgers={[daily, house]} />}
       {screen === 'security' && (
         <SecurityBackupScreen
           lock={appLock.lock}
           saveLock={appLock.saveLock}
           bioAvailable={appLock.bioAvailable}
           backup={backup}
-          count={store.expenses.length}
+          count={daily.store.expenses.length + house.store.expenses.length}
         />
       )}
 
       {screen === 'report' && (
         <ReportScreen
+          ledger={ledger}
+          onLedgerChange={setLedgerId}
           month={month}
           onMonthChange={changeMonth}
           total={total}

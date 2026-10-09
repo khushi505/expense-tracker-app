@@ -10,7 +10,7 @@ import { pickBackupText, shareBackupFile } from './backupFiles';
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 // Back up everything to a file, and restore from one. Takes the other features' state as inputs.
-export function useBackup({ store, profile, budget, icons }) {
+export function useBackup({ daily, house, profile }) {
   const { mode, accent, saveTheme } = useTheme();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null); // { text, error }
@@ -25,11 +25,12 @@ export function useBackup({ store, profile, budget, icons }) {
     setMessage(null);
     try {
       const backup = buildBackup({
-        expenses: store.expenses,
+        expenses: daily.store.expenses,
         name: profile.name,
-        budget: budget.budget,
-        icons: icons.custom,
+        budget: daily.budget.budget,
+        icons: daily.icons.custom,
         theme: { mode, accent },
+        house: { expenses: house.store.expenses, budget: house.budget.budget, icons: house.icons.custom },
       });
       await shareBackupFile(backup);
       const today = dateKey(new Date());
@@ -43,18 +44,31 @@ export function useBackup({ store, profile, budget, icons }) {
   };
 
   const applyReplace = backup => {
-    store.replaceAll(backup.expenses);
+    daily.store.replaceAll(backup.expenses);
     if (backup.name !== undefined) profile.saveName(backup.name);
-    if (backup.budget !== undefined) budget.saveBudget(backup.budget);
-    if (backup.icons) icons.saveIcons(backup.icons);
+    if (backup.budget !== undefined) daily.budget.saveBudget(backup.budget);
+    if (backup.icons) daily.icons.saveIcons(backup.icons);
     if (backup.theme) saveTheme(backup.theme.mode, backup.theme.accent);
-    setMessage({ text: `Restored ${plural(backup.expenses.length, 'expense')} and your settings.` });
+    const h = backup.house; // backups made before House existed leave the current house data alone
+    if (h) {
+      house.store.replaceAll(h.expenses);
+      if (h.budget !== undefined) house.budget.saveBudget(h.budget);
+      if (h.icons) house.icons.saveIcons(h.icons);
+    }
+    setMessage({ text: `Restored ${plural(backup.expenses.length, 'expense')}${h ? `, ${plural(h.expenses.length, 'house expense')}` : ''} and your settings.` });
   };
 
   const applyMerge = backup => {
-    const { list, added } = mergeExpenses(store.expenses, backup.expenses);
-    store.replaceAll(list);
-    setMessage({ text: added ? `Added ${plural(added, 'expense')} that weren't here.` : 'Nothing new to add: all of these expenses are already here.' });
+    const d = mergeExpenses(daily.store.expenses, backup.expenses);
+    daily.store.replaceAll(d.list);
+    let houseAdded = 0;
+    if (backup.house) {
+      const h = mergeExpenses(house.store.expenses, backup.house.expenses);
+      house.store.replaceAll(h.list);
+      houseAdded = h.added;
+    }
+    const parts = [d.added && plural(d.added, 'expense'), houseAdded && plural(houseAdded, 'house expense')].filter(Boolean);
+    setMessage({ text: parts.length ? `Added ${parts.join(' and ')} that weren't here.` : 'Nothing new to add: all of these expenses are already here.' });
   };
 
   const restore = async () => {
@@ -72,7 +86,9 @@ export function useBackup({ store, profile, budget, icons }) {
       const note = skipped ? `\n(${plural(skipped, 'unreadable entry', 'unreadable entries')} will be skipped.)` : '';
       Alert.alert(
         'Restore backup',
-        `This file has ${plural(backup.expenses.length, 'expense')}. You have ${store.expenses.length} now.${note}`,
+        backup.house
+          ? `This file has ${plural(backup.expenses.length, 'expense')} and ${plural(backup.house.expenses.length, 'house expense')}. You have ${daily.store.expenses.length} and ${plural(house.store.expenses.length, 'house expense')} now.${note}`
+          : `This file has ${plural(backup.expenses.length, 'expense')}. You have ${daily.store.expenses.length} now.${note}`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Add to existing', onPress: () => applyMerge(backup) },

@@ -1,4 +1,4 @@
-import { CATEGORIES } from '../../constants/categories';
+import { CATEGORIES, HOUSE_CATEGORIES } from '../../constants/categories';
 import { ACCENTS } from '../../theme/palettes';
 import { lastEmoji } from '../../utils/emoji';
 
@@ -6,31 +6,31 @@ export const BACKUP_VERSION = 1;
 const APP_ID = 'expense-tracker';
 
 // What goes into the backup file. The PIN and app-lock settings are left out on purpose.
-export function buildBackup({ expenses, name, budget, icons, theme }) {
+export function buildBackup({ expenses, name, budget, icons, theme, house }) {
   return {
     app: APP_ID,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { expenses, name, budget, icons, theme },
+    data: { expenses, name, budget, icons, theme, house },
   };
 }
 
 // Keeps only entries that look like real expenses; returns null for ones that don't.
-function cleanExpense(e) {
+function cleanExpense(e, categories) {
   if (!e || typeof e !== 'object') return null;
   const id = typeof e.id === 'number' ? String(e.id) : e.id;
   const label = typeof e.label === 'string' ? e.label.trim() : '';
   if (typeof id !== 'string' || !id || !label || typeof e.amount !== 'number' || !isFinite(e.amount)) return null;
   const out = { id, label, amount: e.amount };
   if (typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date)) out.date = e.date; // missing/invalid dates are worked out from the id
-  out.category = typeof e.category === 'string' && e.category in CATEGORIES ? e.category : null;
+  out.category = typeof e.category === 'string' && e.category in categories ? e.category : null;
   return out;
 }
 
-function cleanIcons(icons) {
+function cleanIcons(icons, categories) {
   if (!icons || typeof icons !== 'object') return undefined;
   const out = {};
-  for (const k of Object.keys(CATEGORIES)) {
+  for (const k of Object.keys(categories)) {
     const emoji = typeof icons[k] === 'string' ? lastEmoji(icons[k]) : null;
     if (emoji) out[k] = emoji;
   }
@@ -42,6 +42,22 @@ function cleanTheme(t) {
   const mode = t.mode === 'light' || t.mode === 'dark' ? t.mode : null;
   const accent = ACCENTS.includes(t.accent) ? t.accent : undefined;
   return accent ? { mode, accent } : undefined;
+}
+
+// Cleans a list of expenses: drops broken entries and repeated ids, and counts what it dropped.
+function cleanList(list, categories) {
+  const seen = new Set();
+  const expenses = [];
+  let skipped = 0;
+  for (const raw of list) {
+    const e = cleanExpense(raw, categories);
+    if (!e || seen.has(e.id)) skipped++;
+    else {
+      seen.add(e.id);
+      expenses.push(e);
+    }
+  }
+  return { expenses, skipped };
 }
 
 // Reads the text of a backup file. Returns { error } or { backup, skipped }.
@@ -58,27 +74,25 @@ export function parseBackup(text) {
   }
   if (!Array.isArray(file.data.expenses)) return { error: 'This backup has no expenses in it.' };
 
-  const seen = new Set();
-  const expenses = [];
-  let skipped = 0;
-  for (const raw of file.data.expenses) {
-    const e = cleanExpense(raw);
-    if (!e || seen.has(e.id)) skipped++;
-    else {
-      seen.add(e.id);
-      expenses.push(e);
-    }
-  }
-
   const d = file.data;
+  const daily = cleanList(d.expenses, CATEGORIES);
+  // The house section is optional: backups made before it existed don't have one.
+  const houseRaw = d.house && typeof d.house === 'object' && Array.isArray(d.house.expenses) ? d.house : null;
+  const house = houseRaw ? cleanList(houseRaw.expenses, HOUSE_CATEGORIES) : null;
+
   return {
-    skipped,
+    skipped: daily.skipped + (house ? house.skipped : 0),
     backup: {
-      expenses,
+      expenses: daily.expenses,
       name: typeof d.name === 'string' ? d.name.slice(0, 60) : undefined,
       budget: typeof d.budget === 'string' ? d.budget : undefined,
-      icons: cleanIcons(d.icons),
+      icons: cleanIcons(d.icons, CATEGORIES),
       theme: cleanTheme(d.theme),
+      house: house && {
+        expenses: house.expenses,
+        budget: typeof houseRaw.budget === 'string' ? houseRaw.budget : undefined,
+        icons: cleanIcons(houseRaw.icons, HOUSE_CATEGORIES),
+      },
     },
   };
 }

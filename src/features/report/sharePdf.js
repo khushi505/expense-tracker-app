@@ -10,12 +10,12 @@ const base64ToBytes = b64 => {
 };
 
 // Turns the report page into a PDF and opens the phone's share sheet.
-export async function shareReportPdf({ html, month }) {
+export async function shareReportPdf({ html, month, prefix = 'expense-report' }) {
   if (!(await Sharing.isAvailableAsync())) throw new Error("This phone can't share files.");
   const { uri, base64 } = await Print.printToFileAsync({ html, width: 595, height: 842, base64: true }); // A4
 
   // Sharing is only allowed from the app's own folder, so save the PDF there under a readable name.
-  const file = new File(Paths.cache, `expense-report-${month}.pdf`);
+  const file = new File(Paths.cache, `${prefix}-${month}.pdf`);
   if (file.exists) file.delete();
   file.create();
   file.write(base64ToBytes(base64));

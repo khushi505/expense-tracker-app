@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { KEYS } from '../../constants/storageKeys';
 import { asText, load, save } from '../../utils/storage';
 
-// The monthly budget, kept as the text typed in Profile.
-export function useBudget() {
+// A monthly budget, kept as the text typed in Profile.
+export function useBudget(storageKey = KEYS.budget) {
   const [budget, setBudget] = useState('');
 
   useEffect(() => {
-    load(KEYS.budget, asText).then(v => v && setBudget(v));
+    load(storageKey, asText).then(v => v && setBudget(v));
   }, []);
 
   const saveBudget = v => {
     setBudget(v);
-    save(KEYS.budget, v, asText);
+    save(storageKey, v, asText);
   };
 
   // How a month's `total` compares with the budget.

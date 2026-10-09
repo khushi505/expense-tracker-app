@@ -1,18 +1,17 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { CATEGORIES, CATEGORY_NAMES } from '../../constants/categories';
 import { useThemedStyles } from '../../theme/ThemeContext';
 import { makeSharedStyles } from '../../theme/sharedStyles';
 
-// Change the emoji shown for each of the fixed categories.
-export default function CategoryIconsSection({ cats, setIcon, resetIcons }) {
+// Change the emoji shown for each of a ledger's fixed categories. `names` maps category key -> label.
+export default function CategoryIconsSection({ names, cats, setIcon, resetIcons }) {
   const shared = useThemedStyles(makeSharedStyles);
   const styles = useThemedStyles(makeStyles);
   return (
     <View>
       <Text style={shared.label}>Tap a box and pick an emoji from your keyboard</Text>
-      {Object.keys(CATEGORIES).map(k => (
+      {Object.keys(names).map(k => (
         <View key={k} style={styles.row}>
-          <Text style={styles.name}>{CATEGORY_NAMES[k]}</Text>
+          <Text style={styles.name}>{names[k]}</Text>
           <TextInput style={styles.input} value={cats[k]} onChangeText={v => setIcon(k, v)} selectTextOnFocus />
         </View>
       ))}

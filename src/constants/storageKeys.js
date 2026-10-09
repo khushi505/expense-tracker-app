@@ -7,4 +7,7 @@ export const KEYS = {
   icons: 'icons',
   lock: 'lock',
   lastBackup: 'lastbackup',
+  houseExpenses: 'house_expenses',
+  houseBudget: 'house_budget',
+  houseIcons: 'house_icons',
 };

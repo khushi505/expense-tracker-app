@@ -13,6 +13,7 @@ export default function ExpenseListScreen({ month, total, sections, cats, onEdit
         sections={sections}
         keyExtractor={e => e.id}
         stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
         ListEmptyComponent={<Text style={styles.empty}>No expenses this month. Tap + to add one.</Text>}
         renderSectionHeader={({ section }) => (

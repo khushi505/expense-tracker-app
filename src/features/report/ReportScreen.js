@@ -3,11 +3,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MonthBar from '../../components/MonthBar';
 import { useTheme, useThemedStyles } from '../../theme/ThemeContext';
 import { makeSharedStyles } from '../../theme/sharedStyles';
+import LedgerSwitch from '../ledger/LedgerSwitch';
 import { buildReportHtml } from './reportHtml';
 import { shareReportPdf } from './sharePdf';
 
 // Pick a month and share it as a PDF report.
-export default function ReportScreen({ month, onMonthChange, total, count, sections, budgetStatus, cats, name }) {
+export default function ReportScreen({ ledger, onLedgerChange, month, onMonthChange, total, count, sections, budgetStatus, cats, name }) {
   const { c } = useTheme();
   const shared = useThemedStyles(makeSharedStyles);
   const styles = useThemedStyles(makeStyles);
@@ -18,8 +19,8 @@ export default function ReportScreen({ month, onMonthChange, total, count, secti
     setBusy(true);
     setError(null);
     try {
-      const html = buildReportHtml({ month, name, total, count, sections, budgetStatus, cats, accent: c.accent });
-      await shareReportPdf({ html, month });
+      const html = buildReportHtml({ month, name, reportName: ledger.reportName, total, count, sections, budgetStatus, cats, accent: c.accent });
+      await shareReportPdf({ html, month, prefix: ledger.filePrefix });
     } catch (e) {
       setError(e.message || 'Could not create the report.');
     }
@@ -29,9 +30,10 @@ export default function ReportScreen({ month, onMonthChange, total, count, secti
   const disabled = busy || count === 0;
   return (
     <View style={shared.panel}>
+      <LedgerSwitch value={ledger.id} onChange={onLedgerChange} />
       <MonthBar month={month} onChange={onMonthChange} />
       <View style={shared.statCard}>
-        <Text style={shared.statLabel}>Total spent</Text>
+        <Text style={shared.statLabel}>{ledger.totalLabel}</Text>
         <Text style={shared.statValue}>{total} Rs</Text>
       </View>
       <View style={shared.statCard}>

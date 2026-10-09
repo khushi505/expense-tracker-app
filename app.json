@@ -28,6 +28,12 @@
         }
       ]
     ],
-    "icon": "./assets/icon.png"
+    "icon": "./assets/icon.png",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

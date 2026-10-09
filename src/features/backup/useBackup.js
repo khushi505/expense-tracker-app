@@ -10,7 +10,7 @@ import { pickBackupText, shareBackupFile } from './backupFiles';
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 // Back up everything to a file, and restore from one. Takes the other features' state as inputs.
-export function useBackup({ daily, house, profile }) {
+export function useBackup({ daily, house, invest, salary, profile }) {
   const { mode, accent, saveTheme } = useTheme();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null); // { text, error }
@@ -31,6 +31,8 @@ export function useBackup({ daily, house, profile }) {
         icons: daily.icons.custom,
         theme: { mode, accent },
         house: { expenses: house.store.expenses, budget: house.budget.budget, icons: house.icons.custom },
+        invest: { expenses: invest.store.expenses, icons: invest.icons.custom },
+        salary: salary.salaries,
       });
       await shareBackupFile(backup);
       const today = dateKey(new Date());
@@ -49,13 +51,21 @@ export function useBackup({ daily, house, profile }) {
     if (backup.budget !== undefined) daily.budget.saveBudget(backup.budget);
     if (backup.icons) daily.icons.saveIcons(backup.icons);
     if (backup.theme) saveTheme(backup.theme.mode, backup.theme.accent);
-    const h = backup.house; // backups made before House existed leave the current house data alone
+    // Parts missing from older backups (house, investments, salary) leave what is already here alone.
+    const h = backup.house;
     if (h) {
       house.store.replaceAll(h.expenses);
       if (h.budget !== undefined) house.budget.saveBudget(h.budget);
       if (h.icons) house.icons.saveIcons(h.icons);
     }
-    setMessage({ text: `Restored ${plural(backup.expenses.length, 'expense')}${h ? `, ${plural(h.expenses.length, 'house expense')}` : ''} and your settings.` });
+    const inv = backup.invest;
+    if (inv) {
+      invest.store.replaceAll(inv.expenses);
+      if (inv.icons) invest.icons.saveIcons(inv.icons);
+    }
+    if (backup.salary) salary.replaceAll(backup.salary);
+    const extras = [h && plural(h.expenses.length, 'house expense'), inv && plural(inv.expenses.length, 'investment')].filter(Boolean);
+    setMessage({ text: `Restored ${plural(backup.expenses.length, 'expense')}${extras.map(x => `, ${x}`).join('')} and your settings.` });
   };
 
   const applyMerge = backup => {
@@ -67,7 +77,14 @@ export function useBackup({ daily, house, profile }) {
       house.store.replaceAll(h.list);
       houseAdded = h.added;
     }
-    const parts = [d.added && plural(d.added, 'expense'), houseAdded && plural(houseAdded, 'house expense')].filter(Boolean);
+    let investAdded = 0;
+    if (backup.invest) {
+      const v = mergeExpenses(invest.store.expenses, backup.invest.expenses);
+      invest.store.replaceAll(v.list);
+      investAdded = v.added;
+    }
+    if (backup.salary) salary.mergeMissing(backup.salary);
+    const parts = [d.added && plural(d.added, 'expense'), houseAdded && plural(houseAdded, 'house expense'), investAdded && plural(investAdded, 'investment')].filter(Boolean);
     setMessage({ text: parts.length ? `Added ${parts.join(' and ')} that weren't here.` : 'Nothing new to add: all of these expenses are already here.' });
   };
 
@@ -86,9 +103,7 @@ export function useBackup({ daily, house, profile }) {
       const note = skipped ? `\n(${plural(skipped, 'unreadable entry', 'unreadable entries')} will be skipped.)` : '';
       Alert.alert(
         'Restore backup',
-        backup.house
-          ? `This file has ${plural(backup.expenses.length, 'expense')} and ${plural(backup.house.expenses.length, 'house expense')}. You have ${daily.store.expenses.length} and ${plural(house.store.expenses.length, 'house expense')} now.${note}`
-          : `This file has ${plural(backup.expenses.length, 'expense')}. You have ${daily.store.expenses.length} now.${note}`,
+        `This file has ${[plural(backup.expenses.length, 'expense'), backup.house && plural(backup.house.expenses.length, 'house expense'), backup.invest && plural(backup.invest.expenses.length, 'investment')].filter(Boolean).join(' and ')}. You have ${[String(daily.store.expenses.length), backup.house && plural(house.store.expenses.length, 'house expense'), backup.invest && plural(invest.store.expenses.length, 'investment')].filter(Boolean).join(' and ')} now.${note}`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Add to existing', onPress: () => applyMerge(backup) },

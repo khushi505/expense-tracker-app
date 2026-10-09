@@ -1,4 +1,4 @@
-import { CATEGORIES, HOUSE_CATEGORIES } from '../../constants/categories';
+import { CATEGORIES, HOUSE_CATEGORIES, INVEST_CATEGORIES } from '../../constants/categories';
 import { ACCENTS } from '../../theme/palettes';
 import { lastEmoji } from '../../utils/emoji';
 
@@ -6,12 +6,13 @@ export const BACKUP_VERSION = 1;
 const APP_ID = 'expense-tracker';
 
 // What goes into the backup file. The PIN and app-lock settings are left out on purpose.
-export function buildBackup({ expenses, name, budget, icons, theme, house }) {
+// `house`, `invest` and `salary` are optional extras: older backups don't have them.
+export function buildBackup({ expenses, name, budget, icons, theme, house, invest, salary }) {
   return {
     app: APP_ID,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { expenses, name, budget, icons, theme, house },
+    data: { expenses, name, budget, icons, theme, house, invest, salary },
   };
 }
 
@@ -44,6 +45,14 @@ function cleanTheme(t) {
   return accent ? { mode, accent } : undefined;
 }
 
+// { '2026-10': 80000 } -> keeps only valid months with sensible amounts.
+function cleanSalary(s) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return undefined;
+  const out = {};
+  for (const [k, v] of Object.entries(s)) if (/^\d{4}-(0[1-9]|1[0-2])$/.test(k) && typeof v === 'number' && isFinite(v) && v >= 0) out[k] = v;
+  return out;
+}
+
 // Cleans a list of expenses: drops broken entries and repeated ids, and counts what it dropped.
 function cleanList(list, categories) {
   const seen = new Set();
@@ -60,6 +69,13 @@ function cleanList(list, categories) {
   return { expenses, skipped };
 }
 
+// An optional section of the file (house or invest). Returns null when the file doesn't have one.
+function readSection(raw, categories) {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.expenses)) return null;
+  const { expenses, skipped } = cleanList(raw.expenses, categories);
+  return { expenses, skipped, budget: typeof raw.budget === 'string' ? raw.budget : undefined, icons: cleanIcons(raw.icons, categories) };
+}
+
 // Reads the text of a backup file. Returns { error } or { backup, skipped }.
 export function parseBackup(text) {
   let file;
@@ -68,7 +84,7 @@ export function parseBackup(text) {
   } catch (e) {
     return { error: "That file isn't a valid backup." };
   }
-  if (!file || file.app !== APP_ID || !file.data) return { error: "That isn't an Expense Tracker backup." };
+  if (!file || file.app !== APP_ID || !file.data) return { error: "That isn't a Tracker backup." };
   if (typeof file.version === 'number' && file.version > BACKUP_VERSION) {
     return { error: 'This backup was made by a newer version of the app. Please update the app first.' };
   }
@@ -76,23 +92,20 @@ export function parseBackup(text) {
 
   const d = file.data;
   const daily = cleanList(d.expenses, CATEGORIES);
-  // The house section is optional: backups made before it existed don't have one.
-  const houseRaw = d.house && typeof d.house === 'object' && Array.isArray(d.house.expenses) ? d.house : null;
-  const house = houseRaw ? cleanList(houseRaw.expenses, HOUSE_CATEGORIES) : null;
+  const house = readSection(d.house, HOUSE_CATEGORIES);
+  const invest = readSection(d.invest, INVEST_CATEGORIES);
 
   return {
-    skipped: daily.skipped + (house ? house.skipped : 0),
+    skipped: daily.skipped + (house ? house.skipped : 0) + (invest ? invest.skipped : 0),
     backup: {
       expenses: daily.expenses,
       name: typeof d.name === 'string' ? d.name.slice(0, 60) : undefined,
       budget: typeof d.budget === 'string' ? d.budget : undefined,
       icons: cleanIcons(d.icons, CATEGORIES),
       theme: cleanTheme(d.theme),
-      house: house && {
-        expenses: house.expenses,
-        budget: typeof houseRaw.budget === 'string' ? houseRaw.budget : undefined,
-        icons: cleanIcons(houseRaw.icons, HOUSE_CATEGORIES),
-      },
+      house: house && { expenses: house.expenses, budget: house.budget, icons: house.icons },
+      invest: invest && { expenses: invest.expenses, budget: invest.budget, icons: invest.icons },
+      salary: cleanSalary(d.salary),
     },
   };
 }

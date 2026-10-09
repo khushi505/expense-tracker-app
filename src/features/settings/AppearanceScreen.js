@@ -5,7 +5,7 @@ import { ACCENTS } from '../../theme/palettes';
 import { makeSharedStyles } from '../../theme/sharedStyles';
 import CategoryIconsSection from './CategoryIconsSection';
 
-// Light / dark mode, accent colour, and the emoji for each category (daily and house).
+// Light / dark mode, accent colour, and the emoji for each category (daily, house and investments).
 export default function AppearanceScreen({ ledgers }) {
   const { mode, accent, saveTheme } = useTheme();
   const shared = useThemedStyles(makeSharedStyles);
@@ -24,7 +24,7 @@ export default function AppearanceScreen({ ledgers }) {
       </View>
       {ledgers.map(l => (
         <View key={l.def.id}>
-          <Text style={shared.section}>{l.def.id === 'daily' ? 'Category icons' : 'House icons'}</Text>
+          <Text style={shared.section}>{l.def.iconsTitle}</Text>
           <CategoryIconsSection names={l.def.names} cats={l.icons.cats} setIcon={l.icons.setIcon} resetIcons={l.icons.resetIcons} />
         </View>
       ))}

@@ -9,12 +9,13 @@ import { dateOf, defaultDate } from './src/utils/dates';
 import { useBackup } from './src/features/backup/useBackup';
 import AddExpenseScreen from './src/features/expenses/AddExpenseScreen';
 import ExpenseListScreen from './src/features/expenses/ExpenseListScreen';
-import { summarize, sumAll } from './src/features/expenses/expenseStats';
+import { summarize } from './src/features/expenses/expenseStats';
 import { useExpenseForm } from './src/features/expenses/useExpenseForm';
 import { useMonth } from './src/features/expenses/useMonth';
 import HomeScreen from './src/features/home/HomeScreen';
 import { useLedger } from './src/features/ledger/useLedger';
-import ReportScreen from './src/features/report/ReportScreen';
+import OverviewScreen from './src/features/overview/OverviewScreen';
+import { useSalary } from './src/features/overview/useSalary';
 import LockScreen from './src/features/lock/LockScreen';
 import { useAppLock } from './src/features/lock/useAppLock';
 import { useHiddenTotal } from './src/features/privacy/useHiddenTotal';
@@ -36,26 +37,31 @@ function Root() {
   const { c, isDark } = useTheme();
   const styles = useThemedStyles(makeStyles);
 
-  const [screen, setScreen] = useState('home'); // 'home' | 'list' | 'add' | 'report' | 'profile' | 'appearance' | 'security'
+  const [screen, setScreen] = useState('home'); // 'home' | 'overview' | 'list' | 'add' | 'profile' | 'appearance' | 'security'
   const [from, setFrom] = useState('home'); // screen to return to after the add/edit screen
+  const [listFrom, setListFrom] = useState('home'); // where the list was opened from (home or the month overview)
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Two separate sets of expenses (daily and house), each with its own budget and icons. One is shown at a time.
+  // Separate sets of entries (daily, house, investments), each with its own icons (and budget). One is shown at a time.
   const daily = useLedger('daily');
   const house = useLedger('house');
+  const invest = useLedger('invest');
   const [ledgerId, setLedgerId] = useState('daily');
-  const { def: ledger, store, budget, icons } = ledgerId === 'house' ? house : daily;
+  const { def: ledger, store, budget, icons } = { daily, house, invest }[ledgerId];
+  const salary = useSalary();
 
   const { month, setMonth, date, setDate, changeMonth } = useMonth();
   const form = useExpenseForm();
   const profile = useProfile();
   const hide = useHiddenTotal();
   const appLock = useAppLock();
-  const backup = useBackup({ daily, house, profile });
+  const backup = useBackup({ daily, house, invest, salary, profile });
 
   const { visible, total, byDate, sections } = summarize(store.expenses, month);
-  const dailyMonthTotal = summarize(daily.store.expenses, month).total;
-  const houseMonthTotal = summarize(house.store.expenses, month).total;
+  const dailyMonth = summarize(daily.store.expenses, month);
+  const houseMonth = summarize(house.store.expenses, month);
+  const investMonth = summarize(invest.store.expenses, month);
+  const loggedThisMonth = dailyMonth.visible.length + houseMonth.visible.length + investMonth.visible.length;
 
   const go = sc => {
     form.reset();
@@ -64,7 +70,12 @@ function Root() {
   };
   const goBack = () => {
     form.reset();
-    setScreen(screen === 'add' ? from : 'home');
+    setScreen(screen === 'add' ? from : screen === 'list' ? listFrom : 'home');
+  };
+  const openList = (id, origin) => {
+    if (id) setLedgerId(id);
+    setListFrom(origin);
+    setScreen('list');
   };
   const openAdd = () => {
     form.reset();
@@ -95,11 +106,11 @@ function Root() {
   if (appLock.cover) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
 
   const titles = {
-    home: 'Expense Tracker',
+    home: 'Tracker',
+    overview: 'Month overview',
     list: ledger.listTitle,
     add: form.editingId ? ledger.editTitle : ledger.addTitle,
     profile: 'Profile',
-    report: 'Monthly report',
     appearance: 'Appearance',
     security: 'Security & backup',
   };
@@ -119,15 +130,32 @@ function Root() {
           count={visible.length}
           budgetStatus={budget.statusFor(total)}
           hide={hide}
-          onViewExpenses={() => setScreen('list')}
+          onViewExpenses={() => openList(null, 'home')}
+        />
+      )}
+
+      {screen === 'overview' && (
+        <OverviewScreen
+          month={month}
+          onMonthChange={changeMonth}
+          salary={salary}
+          daily={dailyMonth.total}
+          house={houseMonth.total}
+          invest={investMonth.total}
+          hide={hide}
+          onOpen={id => openList(id, 'overview')}
         />
       )}
 
       {screen === 'list' && (
         <ExpenseListScreen
+          ledger={ledger}
           month={month}
+          name={profile.name}
           total={total}
+          count={visible.length}
           sections={sections}
+          budgetStatus={budget.statusFor(total)}
           cats={icons.cats}
           onEdit={startEdit}
         />
@@ -155,38 +183,18 @@ function Root() {
           saveName={profile.saveName}
           dailyBudget={daily.budget.budget}
           saveDailyBudget={daily.budget.saveBudget}
-          houseBudget={house.budget.budget}
-          saveHouseBudget={house.budget.saveBudget}
-          dailyMonthTotal={dailyMonthTotal}
-          houseMonthTotal={houseMonthTotal}
-          allTotal={sumAll(daily.store.expenses) + sumAll(house.store.expenses)}
-          count={daily.store.expenses.length + house.store.expenses.length}
+          count={loggedThisMonth}
         />
       )}
 
-      {screen === 'appearance' && <AppearanceScreen ledgers={[daily, house]} />}
+      {screen === 'appearance' && <AppearanceScreen ledgers={[daily, house, invest]} />}
       {screen === 'security' && (
         <SecurityBackupScreen
           lock={appLock.lock}
           saveLock={appLock.saveLock}
           bioAvailable={appLock.bioAvailable}
           backup={backup}
-          count={daily.store.expenses.length + house.store.expenses.length}
-        />
-      )}
-
-      {screen === 'report' && (
-        <ReportScreen
-          ledger={ledger}
-          onLedgerChange={setLedgerId}
-          month={month}
-          onMonthChange={changeMonth}
-          total={total}
-          count={visible.length}
-          sections={sections}
-          budgetStatus={budget.statusFor(total)}
-          cats={icons.cats}
-          name={profile.name}
+          count={daily.store.expenses.length + house.store.expenses.length + invest.store.expenses.length}
         />
       )}
 

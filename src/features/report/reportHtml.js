@@ -52,6 +52,6 @@ export function buildReportHtml({ month, name, reportName = 'Expense report', to
     <div class="meta">${count} ${count === 1 ? 'expense' : 'expenses'}${budgetLine ? ` &middot; ${budgetLine}` : ''}</div>
   </div>
   ${days || '<div class="empty">No expenses this month.</div>'}
-  <div class="foot">Created ${esc(dateLabel(dateKey(new Date())))} with Expense Tracker</div>
+  <div class="foot">Created ${esc(dateLabel(dateKey(new Date())))} with Tracker</div>
 </body></html>`;
 }

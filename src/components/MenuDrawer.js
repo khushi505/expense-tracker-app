@@ -1,7 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme, useThemedStyles } from '../theme/ThemeContext';
 
-const ITEMS = [['home', 'Home'], ['list', 'Expenses'], ['report', 'Monthly report'], ['profile', 'Profile'], ['appearance', 'Appearance'], ['security', 'Security & backup']];
+const ITEMS = [['home', 'Home'], ['profile', 'Profile'], ['appearance', 'Appearance'], ['overview', 'Month overview'], ['security', 'Security & backup']];
 
 // Side menu opened by ☰.
 export default function MenuDrawer({ visible, onClose, name, screen, onSelect }) {

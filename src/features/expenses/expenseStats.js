@@ -13,5 +13,3 @@ export function summarize(expenses, month) {
   }));
   return { visible, total, byDate, sections };
 }
-
-export const sumAll = expenses => expenses.reduce((sum, e) => sum + e.amount, 0);

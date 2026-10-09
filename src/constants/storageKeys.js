@@ -10,4 +10,8 @@ export const KEYS = {
   houseExpenses: 'house_expenses',
   houseBudget: 'house_budget',
   houseIcons: 'house_icons',
+  investExpenses: 'invest_expenses',
+  investBudget: 'invest_budget',
+  investIcons: 'invest_icons',
+  salary: 'salary',
 };

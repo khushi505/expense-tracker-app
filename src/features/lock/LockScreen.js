@@ -16,7 +16,7 @@ export default function LockScreen({ bio, onUnlock }) {
   const [now, setNow] = useState(Date.now());
 
   const tryPhone = async () => {
-    if (await phoneUnlock('Unlock Expense Tracker')) onUnlock();
+    if (await phoneUnlock('Unlock Tracker')) onUnlock();
   };
 
   useEffect(() => {
